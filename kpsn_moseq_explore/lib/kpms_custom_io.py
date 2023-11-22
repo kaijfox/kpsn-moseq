@@ -5,6 +5,12 @@ import joblib as jl
 import numpy as np
 import tqdm
 import os.path
+import re
+
+
+modata_name_func = (lambda path, *a:
+    re.search(r"(?:/.*)+/\d{2}_\d{2}_\d{2}_(\d+wk_m\d+)\.gimbal_results\.p",
+              path).group(1))
 
 def _name_from_path(filepath, path_in_name, path_sep, remove_extension):
     """Create a name from a filepath.
@@ -20,7 +26,7 @@ def _name_from_path(filepath, path_in_name, path_sep, remove_extension):
         return os.path.basename(filepath)
 
 
-def load_keypoints_with_loader(
+def load_glob(
     filepath_pattern,
     loader,
     recursive=True,
@@ -45,11 +51,28 @@ def load_keypoints_with_loader(
     """
 
     import glob
-    filepaths = glob.glob(filepath_pattern, recursive = True)
+    filepaths = glob.glob(filepath_pattern, recursive = recursive)
     assert len(filepaths) > 0, fill(
         f"No such files {filepath_pattern}"
     )
 
+    return load_keypoints(
+        filepaths,
+        loader,
+        path_sep,
+        path_in_name,
+        remove_extension,
+        name_func)
+
+
+def load_keypoints(
+    filepaths,
+    loader,
+    path_sep="-",
+    path_in_name=False,
+    remove_extension=True,
+    name_func=None
+):
     coordinates, confidences, bodyparts = {}, {}, None
     for filepath in tqdm.tqdm(filepaths, desc=f"Loading keypoints", ncols=72):
         try:
@@ -62,7 +85,7 @@ def load_keypoints_with_loader(
 
             if set(new_coordinates.keys()) & set(coordinates.keys()):
                 raise ValueError(
-                    f"Duplicate names found in {filepath_pattern}:\n\n"
+                    f"Duplicate names found in filename list:\n\n"
                     f"{set(new_coordinates.keys()) & set(coordinates.keys())}"
                     f"\n\nThis may be caused by repeated filenames with "
                     "different extensions. If so, please set the extension "
@@ -78,7 +101,7 @@ def load_keypoints_with_loader(
         confidences.update(new_confidences)
 
     assert len(coordinates) > 0, fill(
-        f"No valid results found for {filepath_pattern}"
+        f"No valid results found"
     )
 
     kpms_util.check_nan_proportions(coordinates, bodyparts)
