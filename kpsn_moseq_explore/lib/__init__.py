@@ -3,6 +3,7 @@ import pkgutil, importlib
 from . import datasets
 from . import transforms
 from . import kpms_custom_io
+from . import separability
 
 __all__ = []
 for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):

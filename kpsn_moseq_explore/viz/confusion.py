@@ -38,7 +38,7 @@ def confusion_matrix(
     label_set):
 
     confusion = np.array([[
-            # intersection usage / original usage
+            # intersection usage
             (((original_labels == orig_syll) &
               (perturbed_labels == new_syll)).sum())
         for new_syll in label_set]

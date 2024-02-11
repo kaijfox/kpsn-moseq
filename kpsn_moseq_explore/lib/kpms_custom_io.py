@@ -5,12 +5,14 @@ import joblib as jl
 import numpy as np
 import tqdm
 import os.path
-import re
+import re, glob
 
 
 modata_name_func = (lambda path, *a:
     re.search(r"(?:/.*)+/\d{2}_\d{2}_\d{2}_(\d+wk_m\d+)\.gimbal_results\.p",
               path).group(1))
+modata_age_from_sess_name = lambda name: name.split('w')[0]
+modata_id_from_sess_name  = lambda name: name.split('m')[1]
 
 def _name_from_path(filepath, path_in_name, path_sep, remove_extension):
     """Create a name from a filepath.
@@ -115,3 +117,42 @@ def create_multicam_gimbal_loader(bodyparts):
         confs = np.ones_like(coords[..., 0])
         return {name: coords}, {name: confs}, bodyparts
     return multicam_gimbal_loader
+
+
+# group grabbers
+# -----------------------------------------------------------------------------
+
+def with_age(data_dir, tgt_age, config):
+    filenames = glob.glob(f'{data_dir}/**/*.gimbal_results.p', recursive = True)
+    sessions = [
+        modata_name_func(f) for f in filenames if 
+        modata_age_from_sess_name(modata_name_func(f)) == tgt_age]
+    filenames = [
+        f for f in filenames if
+        modata_name_func(f) in sessions]
+    
+    coordinates, confidences, _ = load_keypoints(
+        filenames,
+        create_multicam_gimbal_loader(config['bodyparts']),
+        name_func = modata_name_func)
+    
+    return sessions, (coordinates, confidences)
+
+
+
+# keypt_io.py
+# -----------------------------------------------------------------------------
+
+def get_groups_dict(metadata_val):
+    """
+    Parameters
+    ----------
+    metadata_val : dict
+        Mapping session names to metadata values
+    """
+    groups = {}
+    for sess_name, val in metadata_val.items():
+        if val not in groups: groups[val] = []
+        groups[val].append(sess_name)
+    sorted_keys = sorted(groups.keys())
+    return sorted_keys, tuple(groups[k] for k in sorted_keys)
